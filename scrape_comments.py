@@ -1,50 +1,32 @@
-import yt_dlp
-import json
-import time
+name: Scrape Comments
 
-with open("urls.txt", "r", encoding="utf-8") as f:
-    urls = [line.strip() for line in f if line.strip()]
+on:
+  workflow_dispatch:
 
-ydl_opts = {
-    "skip_download": True,
-    "writecomments": True,
-    "getcomments": True,
-    "cookiefile": "cookies.txt",
-    "extractor_args": {"youtube": {"max_comments": ["all", "all", "all", "all"]}},
-    "sleep_interval_requests": 2,
-}
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
 
-all_data = []
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-    for i, url in enumerate(urls, 1):
-        try:
-            info = ydl.extract_info(url, download=False)
-            comments = info.get("comments", [])
-            clean_comments = [
-                {
-                    "author": c.get("author"),
-                    "text": c.get("text"),
-                    "likes": c.get("like_count"),
-                    "timestamp": c.get("timestamp"),
-                    "is_reply": c.get("parent") != "root"
-                }
-                for c in comments
-            ]
-            all_data.append({
-                "video_id": info.get("id"),
-                "title": info.get("title"),
-                "comment_count": len(clean_comments),
-                "comments": clean_comments
-            })
-            print(f"[{i}/{len(urls)}] {info.get('id')} - {len(clean_comments)} comments")
-        except Exception as e:
-            print(f"[{i}/{len(urls)}] FAILED: {url} - {e}")
+      - name: Install yt-dlp
+        run: pip install yt-dlp
 
-        # save after every video so progress isn't lost
-        with open("comments.json", "w", encoding="utf-8") as f:
-            json.dump(all_data, f, ensure_ascii=False, indent=2)
+      - name: Install Deno
+        run: |
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "$HOME/.deno/bin" >> $GITHUB_PATH
 
-        time.sleep(1)
+      - name: Run scraper
+        run: python scrape_comments.py
 
-print(f"Done. Saved {sum(d['comment_count'] for d in all_data)} comments to comments.json")
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: comments-json
+          path: comments.json
