@@ -1,0 +1,27 @@
+name: Scrape Comments
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install yt-dlp
+        run: pip install yt-dlp
+
+      - name: Run scraper
+        run: python scrape_comments.py
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: comments-json
+          path: comments.json
