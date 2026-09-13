@@ -9,6 +9,7 @@ ydl_opts = {
     "skip_download": True,
     "writecomments": True,
     "getcomments": True,
+    "cookiefile": "cookies.txt",
     "extractor_args": {"youtube": {"max_comments": ["all", "all", "all", "all"]}},
     "sleep_interval_requests": 2,
 }
