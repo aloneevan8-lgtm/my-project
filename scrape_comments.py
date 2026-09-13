@@ -1,32 +1,54 @@
-name: Scrape Comments
+import yt_dlp
+import json
+import time
 
-on:
-  workflow_dispatch:
+with open("urls.txt", "r", encoding="utf-8") as f:
+    urls = [line.strip() for line in f if line.strip()]
 
-jobs:
-  scrape:
-    runs-on: ubuntu-latest
-    timeout-minutes: 350
-    steps:
-      - uses: actions/checkout@v4
+ydl_opts = {
+    "skip_download": True,
+    "writecomments": True,
+    "getcomments": True,
+    "cookiefile": "cookies.txt",
+    "extractor_args": {
+        "youtube": {
+            "max_comments": ["all", "all", "all", "all"],
+            "remote_components": ["ejs:github"]
+        }
+    },
+    "sleep_interval_requests": 2,
+}
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+all_data = []
 
-      - name: Install yt-dlp
-        run: pip install yt-dlp
+with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    for i, url in enumerate(urls, 1):
+        try:
+            info = ydl.extract_info(url, download=False)
+            comments = info.get("comments", [])
+            clean_comments = [
+                {
+                    "author": c.get("author"),
+                    "text": c.get("text"),
+                    "likes": c.get("like_count"),
+                    "timestamp": c.get("timestamp"),
+                    "is_reply": c.get("parent") != "root"
+                }
+                for c in comments
+            ]
+            all_data.append({
+                "video_id": info.get("id"),
+                "title": info.get("title"),
+                "comment_count": len(clean_comments),
+                "comments": clean_comments
+            })
+            print(f"[{i}/{len(urls)}] {info.get('id')} - {len(clean_comments)} comments")
+        except Exception as e:
+            print(f"[{i}/{len(urls)}] FAILED: {url} - {e}")
 
-      - name: Install Deno
-        run: |
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "$HOME/.deno/bin" >> $GITHUB_PATH
+        with open("comments.json", "w", encoding="utf-8") as f:
+            json.dump(all_data, f, ensure_ascii=False, indent=2)
 
-      - name: Run scraper
-        run: python scrape_comments.py
+        time.sleep(1)
 
-      - name: Upload result
-        uses: actions/upload-artifact@v4
-        with:
-          name: comments-json
-          path: comments.json
+print(f"Done. Saved {sum(d['comment_count'] for d in all_data)} comments to comments.json")
