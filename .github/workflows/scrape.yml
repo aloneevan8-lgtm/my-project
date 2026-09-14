@@ -23,7 +23,7 @@ jobs:
           echo "$HOME/.deno/bin" >> $GITHUB_PATH
 
       - name: Run scraper
-        run: python scrape_comments.py
+        run: python -u scrape_comments.py
 
       - name: Upload result
         uses: actions/upload-artifact@v4
